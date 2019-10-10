@@ -117,7 +117,8 @@ Time (UTC)  | Lat   | Long  | Frequency (kHz)  | Source Level (dB)
 We need to convert that into a data frame again; this time I'm going to assemble it all in one go and then print it to the screen:
 
 ```{r}
-shipA <- data.frame(time = c(as.POSIXct(strptime("2000-03-15 07:00:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
+ships <- data.frame(ship_ID = 'A',
+                    time = c(as.POSIXct(strptime("2000-03-15 07:00:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
                              as.POSIXct(strptime("2000-03-15 09:00:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
                              as.POSIXct(strptime("2000-03-15 11:00:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
                              as.POSIXct(strptime("2000-03-15 12:30:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
@@ -127,7 +128,7 @@ shipA <- data.frame(time = c(as.POSIXct(strptime("2000-03-15 07:00:00", "%Y-%m-%
                     lat = c(26 + 13/60, 25 + 58/60, 25 + 31/60, 25 + 31/60, 26 + 05/60, 26 + 19/60),
                     frequency = c(2.6, 2.6, 2.6, 3.3, 3.3, 3.3),
                     source_level = c(235, 235, 235, 235, 235, 225))
-shipA
+ships
 ```
 
 Ok! We have a ship's track through the area. Pretty cool. (n.b., for your homework, you may want to allot one of the three remaining ships to a group member so you don't all have to input the data 3 times.)
@@ -135,30 +136,19 @@ Ok! We have a ship's track through the area. Pretty cool. (n.b., for your homewo
 All we did above was specify the vectors within the call to ```data.frame()```, which just saves us a step. Also note that dates and times can be very fussy to get right. In fact they can be a collossal pain in the keister. However, with that fussy formatting, R now knows this is a date object. This allows us to do operations on the dates themselves:
 
 ```{r}
-shipA$time[1] + months(1)
-shipA$time[4] - shipA$time[1]
+ships$time[1] + months(7)
+ships$time[4] - ships$time[1]
 ```
 
 If you stay working with R, I suggest learning the ```lubridate()``` package, which makes a lot of the date handling easier. 
 
 ## Spatial Data
-While we have x and y coordinates, or rather longitude and latitude data, we need to tell R a bit more about them to make them spatial data.
-
-```{r}
-library(sf)
-library(tidyverse)
-
-shipA_sf <- shipA %>% 
-  sf::st_as_sf(coords = c("lon","lat")) %>% 
-  sf::st_set_crs(4326)
-
-shipA_sf
-```
-
-What are the differences between the ```shipA``` data frame, and the ```shipA_sf``` point feature class? What do you think these differences do?
-
 ### Plot the Ship Track
-We now have enough to plot the ship onto the map. So we can repurpose the code from above.
+We now have enough to plot the ship onto the map. So we can repurpose the plotting code from above. But of course, we have to change the inputs to plot what we want. Now I'm color coding the points based on the source level of the ship, and we change the pop-up text. 
+
+You may wonder how I chose the default zoom and location of the map. You may also wonder what I mean by that! By zoom I mean how far zoomed in or out we are from where the data are. The higher the number the greater the zoom (this is in the ```setView()``` command). Try it at 2, and then again at 12 to see the difference.
+
+And by location, again in the ```setView()``` command you can specify where to center the map. After some trial exploratory analysis, I chose to center it on the 14:30 location of the ship. But you can also change this and see what you get. Try ```lat = 38.8977, lon = -77.0365``` to see what you get.
 
 ```{r}
 mybins <- seq(220, 245, by=5)
@@ -169,11 +159,12 @@ center_long <- -77.83333
 
 # Prepare the text for the tooltip:
 mytext <- paste(
-  "Ship A Location at Time: ", shipA$time, "<br/>", 
-  "SPL (dB): ", shipA$source_level, sep="") %>%
+  "Ship ID: ", ships$ship_ID, "<br/>", 
+  "Location at Time: ", ships$time, "<br/>", 
+  "SPL (dB): ", ships$source_level, sep="") %>%
   lapply(htmltools::HTML)
 
-m <- leaflet(shipA) %>% 
+m <- leaflet(ships) %>% 
   addTiles()  %>% 
   setView( lat = center_lat, lng = center_long, zoom = 8) %>%
   addProviderTiles("Esri.OceanBasemap") %>%
@@ -182,7 +173,7 @@ m <- leaflet(shipA) %>%
                    label = mytext,
                    labelOptions = labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), 
                                                 textsize = "13px", direction = "auto")) %>% 
-  addLegend( pal=mypalette, values=~source_level, opacity=0.9, title = "Source Level (dB)", position = "bottomright" )
+  addLegend(pal=mypalette, values=~source_level, opacity=0.9, title = "Source Level (dB)", position = "bottomright" )
 
 m
 ```
@@ -190,7 +181,71 @@ m
 So that looks cool, but we can improve this - no? What if we wanted to add the stranding to the map? What would we need to add? Well the data from the whale, of course, but we might also want to change the text for the tooltip, i.e. what you get when you hover your cursor over the point. 
 
 ```{r}
-m <- m %>% 
+m2 <- m %>% 
 addMarkers(data = strandings, ~lon, ~lat, popup = ~as.character(species), label = ~as.character(species))
+m2
 ```
 
+What else might we want? For homework I'm going to ask you to plot all the strandings and all the ships. Let's see an example of how we might build up the data sets. Let's add one more whale, and one point from one ship. I'll leave it as homework for you to do the rest. One way you might want to do this is to make the complete data sets in one go as I demonstrated above. Here I'll just add one row to each data frame - first the whales:
+
+```{r, warning=FALSE, message=FALSE}
+new_sight <- data.frame(animal_id = "BMMS_00_05", species = 'M.densirostris', lon = -1 * (77 + 31.163/60), lat = 26 + 05.908/60)
+strandings <- bind_rows(strandings, new_sight)
+strandings
+```
+
+Then shipB:
+
+```{r, warning=FALSE, message=FALSE}
+shipB <- data.frame(ship_ID = 'B',
+                    time = as.POSIXct(strptime("2000-03-15 14:30:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
+                    lon = -1 * (79 + 3.1/60),
+                    lat = 26 + 22/60,
+                    frequency = 2.6,
+                    source_level = 240)
+ships <- bind_rows(ships, shipB)
+```
+
+Finally, let's plot it. Note that we have to source the ```mytext``` block again to account for the fact that we've added a new ship to the ```ships``` data frame. In your homework, you'll do the data assembly all at once, and avoid having to make this double sourcing of the code.
+
+```{r}
+mytext <- paste(
+  "Ship ID: ", ships$ship_ID, "<br/>", 
+  "Location at Time: ", ships$time, "<br/>", 
+  "SPL (dB): ", ships$source_level, sep="") %>%
+  lapply(htmltools::HTML)
+
+m3 <- m %>% 
+  addMarkers(data = strandings, ~lon, ~lat, popup = ~as.character(paste(animal_id, species, sep = ": ")), 
+             label = ~as.character(paste(animal_id, species, sep = ": "))) %>% 
+  addCircleMarkers(data = ships, ~lon, ~lat, 
+                   fillColor = ~mypalette(source_level), fillOpacity = 0.7, color="white", radius=8, stroke=FALSE,
+                   label = mytext,
+                   labelOptions = labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), 
+                                                textsize = "13px", direction = "auto")) 
+m3
+```
+
+Ok, channeling my inner Bob Ross I think this happy little map looks great. Note, on the off chance that you do not know who Bob Ross is, first - he rules:
+
+![alt text](Bob_at_Easel.jpg)
+Second, his programs are surprisingly effective at relaxation. See https://www.youtube.com/watch?v=lLWEXRAnQd0 for example. Remember this (and the puppies!) at exam time. 
+
+## Adding Sonar
+Let's turn this up to 11 and add in a buffer on the ship's position to get a feel for how much of the North East Providence channel was ensonified. To do this, I'm going to select a distance from the ship where source level exceeds *135* dB. For your homework, you can choose whatever you want as long as you can defend it based on the figure, our readings and in-class discussion. Here's a snapshot of the acoustic field from the NRL report:
+
+![alt text](ship-B_Upper-Water-Column.png)
+
+I'm going to choose 60km. How do we then buffer that to show the ensonification?
+
+```{r}
+m4 <- m3 %>% 
+  addCircles(data = ships[5, ], ~lon, ~lat, radius = 60000,
+                   fillColor = ~mypalette(source_level), fillOpacity = 0.1, color="white", stroke=FALSE,
+                   label = mytext,
+                   labelOptions = labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), 
+                                                textsize = "13px", direction = "auto")) 
+m4
+```
+
+What does this tell you about the whales in the channel?
