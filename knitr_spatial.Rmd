@@ -1,0 +1,157 @@
+---
+title: "Intro to Spatial Data"
+author: "Dr. Rob Schick"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mdsr)
+library(sp)
+library(leaflet)
+library(tidyverse)
+```
+
+## Intro to Spatial Data
+
+To plot the strandings for your homework assignment, you'll need to know how to make a map in R, and populate it with spatial data. We started this last week with the code to make a map of (some) of the strandings of beaked whales around the world. First we assembled the data:
+
+```{r}
+locations <- c('Bahamas', 'Canary_Islands', 'Madeira', 'Greece')
+date <- as.Date(c('2000-03-14', '2002-09-24', '2000-05-10', '1996-05-12'), "%Y-%m-%d")
+num_Zc <- c(11, 8, 3, 14)
+lat <- c(26.905, 28.804022, 33.041934, 37.416491)
+long <- c(-77.4829, -13.840395, -16.351554, 21.628179)
+
+center_lat <- mean(lat)
+center_long <- mean(long)
+
+whales <- data.frame(locations, date, num_Zc, lat, long) 
+whales
+```
+
+And we plotted that using the leaflet library, which makes an interactive javascript map:
+
+```{r}
+mybins <- seq(2, 15, by=2)
+mypalette <- colorBin(palette="YlOrBr", domain=whales$num_Zc, na.color="transparent", bins=mybins)
+
+
+# Prepare the text for the tooltip:
+mytext <- paste(
+  "Stranding Location: ", whales$locations, "<br/>", 
+  "# Dead Ziphius: ", whales$num_Zc, sep="") %>%
+  lapply(htmltools::HTML)
+
+m <- leaflet(whales) %>% 
+  addTiles()  %>% 
+  setView( lat = center_lat, lng = center_long , zoom = 2) %>%
+  addProviderTiles("Esri.OceanBasemap") %>%
+  addCircleMarkers(~long, ~lat, 
+                   fillColor = ~mypalette(num_Zc), fillOpacity = 0.7, color="white", radius=8, stroke=FALSE,
+                   label = mytext,
+                   labelOptions = labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), 
+                                                textsize = "13px", direction = "auto")) %>% 
+  addLegend( pal=mypalette, values=~num_Zc, opacity=0.9, title = "# Animals", position = "bottomright" )
+
+m
+```
+
+That worked great, and since we went a little fast in class, let's look at building a new map using _some_ of the data from the Balcomb and Claridge (2001) paper, as well as the Joint Interim Report. Use this as an example; for your homework, you'll have to complete the rest.
+
+## Building up a Dataset
+### Strandings
+First, let's start with a stranding location from the paper. Specifically, let's look at the first entry from Table 1 - a spinner dolphin (the same species we'll examine at DUML). The data are:
+
+Animal ID  | Species | Location
+------------- | ------------- | -------------
+BMMS 00-01 Abaco  | _Stenella frontalis_ immature female | 26 $\infty$ 54.307'N 77 $\infty$ 28.974'W
+
+So right off the bat, we'll need to clean things up a little - especially the way the latitude and longitude are formatted. R can't ingest them as written. As written, the spatial coordinates are in degrees, minutes and decimal minutes. It's easiest to convert them to decimal degrees, and to do that you have to divide the minutes by degrees. There are 60 minutes in one degree, so the order of operations is to divide 54.307 by 60 and then add it to the degrees:
+
+```{r}
+lat <- 26 + 54.307 / 60
+```
+
+And then do the same thing for longitude:
+
+```{r}
+lon <- -1 * (77 + 28.974/ 60) 
+```
+
+Two things to note. First, since we are north of the equator, the latitude is positive, and since we are west of the Greenwich Meridian, longitude is negative - hence the multiplying by -1.
+
+Now we can specify the other information as individual vectors:
+
+```{r}
+animal_id <- 'BMMS_00-01'
+species <- 'S.frontalis'
+```
+
+Let's put them all together into a data frame - the most common data object in R:
+
+```{r}
+strandings <- data.frame(animal_id, species, lon, lat)
+strandings
+```
+
+### Ship Location
+The map in the Joint Interim Report is pretty crappy and not that usable. I reached out to the author of the sound propagation section - Dr. David Fromm, from the Naval Research Lab - and he sent me the entire sound prop report:
+
+ACOUSTIC MODELING RESULTS OF THE NEW PROVIDENCE CHANNEL FOR 15 MARCH 2000. Dr. David M. Fromm, NRL & Dr. James McEachern, ONR, 29 August 2000
+
+(this is in the resources section)
+
+Therein, they note the locations of the ships with the different sonar types. Here's ship A:
+
+Time (UTC)  | Lat   | Long  | Frequency (kHz)  | Source Level (dB)
+------------- | ------------- | ------------- | ------------- | -------------
+0700  | 26 13 N | 075 36 W  | 2.6   | 235 
+0900  | 25 58 N | 076 50 W  | 2.6   | 235
+1100  | 25 31 N | 077 15 W  | 2.6   | 235
+1230  | 25 31 N | 077 30 W  | 3.3   | 235
+1430  | 26 05 N | 077 50 W  | 3.3   | 235
+1630  | 26 19 N | 078 13 W  | 3.3   | 225
+
+We need to convert that into a data frame again; this time I'm going to assemble it all in one go and then print it to the screen:
+
+```{r}
+shipA <- data.frame(time = c(as.POSIXct(strptime("2000-03-15 07:00:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
+                             as.POSIXct(strptime("2000-03-15 09:00:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
+                             as.POSIXct(strptime("2000-03-15 11:00:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
+                             as.POSIXct(strptime("2000-03-15 12:30:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
+                             as.POSIXct(strptime("2000-03-15 14:30:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT"),
+                             as.POSIXct(strptime("2000-03-15 16:30:00", "%Y-%m-%d %H:%M:%S"), tz = "GMT")),
+                    lon = -1 * c(75 + 36/60, 76 + 50 / 60, 77 + 15/60, 77 + 30/60, 77 + 50/60, 78 + 13/60),
+                    lat = c(26 + 13/60, 25 + 58/60, 25 + 31/60, 25 + 31/60, 26 + 05/60, 26 + 19/60),
+                    frequency = c(2.6, 2.6, 2.6, 3.3, 3.3, 3.3),
+                    source_level = c(235, 235, 235, 235, 235, 225))
+shipA
+```
+
+Ok! We have a ship's track through the area. Pretty cool. (n.b., for your homework, you may want to allot one of the three remaining ships to a group member so you don't all have to input the data 3 times.)
+
+All we did above was specify the vectors within the call to ```data.frame()```, which just saves us a step. Also note that dates and times can be very fussy to get right. In fact they can be a collossal pain in the keister. However, with that fussy formatting, R now knows this is a date object. This allows us to do operations on the dates themselves:
+
+```{r}
+shipA$time[1] + months(1)
+shipA$time[4] - shipA$time[1]
+```
+
+If you stay working with R, I suggest learning the ```lubridate()``` package, which makes a lot of the date handling easier. 
+
+## Spatial Data
+While we have x and y coordinates, or rather longitude and latitude data, we need to tell R a bit more about them to make them spatial data.
+
+```{r}
+library(sf)
+library(tidyverse)
+
+shipA_sf <- shipA %>% 
+  sf::st_as_sf(coords = c("lon","lat")) %>% 
+  sf::st_set_crs(4326)
+
+shipA_sf
+```
+
