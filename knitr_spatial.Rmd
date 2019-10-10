@@ -155,3 +155,34 @@ shipA_sf <- shipA %>%
 shipA_sf
 ```
 
+What are the differences between the ```shipA``` data frame, and the ```shipA_sf``` point feature class? What do you think these differences do?
+
+### Plot the Ship Track
+We now have enough to plot the ship onto the map. So we can repurpose the code from above.
+
+```{r}
+mybins <- seq(220, 245, by=5)
+mypalette <- colorBin(palette="Reds", domain=shipA$source_level, na.color="transparent", bins=mybins)
+
+center_lat <- 26.08333
+center_long <- -77.83333
+
+# Prepare the text for the tooltip:
+mytext <- paste(
+  "Ship A Location at Time: ", shipA$time, "<br/>", 
+  "SPL (dB): ", shipA$source_level, sep="") %>%
+  lapply(htmltools::HTML)
+
+m <- leaflet(shipA) %>% 
+  addTiles()  %>% 
+  setView( lat = center_lat, lng = center_long, zoom = 8) %>%
+  addProviderTiles("Esri.OceanBasemap") %>%
+  addCircleMarkers(~lon, ~lat, 
+                   fillColor = ~mypalette(source_level), fillOpacity = 0.7, color="white", radius=8, stroke=FALSE,
+                   label = mytext,
+                   labelOptions = labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), 
+                                                textsize = "13px", direction = "auto")) %>% 
+  addLegend( pal=mypalette, values=~source_level, opacity=0.9, title = "Source Level (dB)", position = "bottomright" )
+
+m
+```
