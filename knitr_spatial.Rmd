@@ -58,52 +58,58 @@ m <- leaflet(whales) %>%
 m
 ```
 
-That worked great, and since we went a little fast in class, let's look at building a new map using _some_ of the data from the Balcomb and Claridge (2001) paper, as well as the Joint Interim Report. Use this as an example; for your homework, you'll have to complete the rest.
+That worked great, and since we went a little fast in class, let's look at building a new map using _some_ of the data from the Balcomb and Claridge (2001) paper, as well as the Joint Interim Report. 
+
+For your homework, you can use this template as an example; you'll have to complete the assignment by building up the ships and the strandings. The information for the strandings is in Table 1 of Balcomb and Claridge (2001); the information for the ships is in the Fromm and McEachern report that I've placed on sakai (see below for more detail).
 
 ## Building up a Dataset
 ### Strandings
-First, let's start with a stranding location from the paper. Specifically, let's look at the first entry from Table 1 - a spinner dolphin (the same species we'll examine at DUML). The data are:
+First, let's start with a stranding location from the paper. Specifically, let's look at the first entry from Table 1 - a spinner dolphin (the same species we'll examine at DUML). The data in that table are:
 
 Animal ID  | Species | Location
 ------------- | ------------- | -------------
 BMMS 00-01 Abaco  | _Stenella frontalis_ immature female | 26 $\infty$ 54.307'N 77 $\infty$ 28.974'W
 
-So right off the bat, we'll need to clean things up a little - especially the way the latitude and longitude are formatted. R can't ingest them as written. As written, the spatial coordinates are in degrees, minutes and decimal minutes. It's easiest to convert them to decimal degrees, and to do that you have to divide the minutes by degrees. There are 60 minutes in one degree, so the order of operations is to divide 54.307 by 60 and then add it to the degrees:
+So right off the bat, we'll need to clean things up a little - especially the way the latitude and longitude are formatted. As written, the spatial coordinates are in degrees, minutes and decimal minutes, but R can't ingest them as written. 
+
+It's easiest to convert them to decimal degrees, and to do that you have to divide the minutes by degrees. There are 60 minutes in one degree, so the order of operations is to divide 54.307 by 60 and then add it to the degrees. Here's the R code to do that and to populate a vector called ```lat``` (short for latitude):
 
 ```{r}
 lat <- 26 + 54.307 / 60
 ```
 
-And then do the same thing for longitude:
+And then do the same thing for longitude, but note the operations look a little different. We are multiplying by -1 - why?:
 
 ```{r}
 lon <- -1 * (77 + 28.974/ 60) 
 ```
 
-Two things to note. First, since we are north of the equator, the latitude is positive, and since we are west of the Greenwich Meridian, longitude is negative - hence the multiplying by -1.
+First, since we are north of the equator, the latitude is positive, and second, since we are west of the Greenwich Meridian, longitude is negative - hence the multiplying by -1. If we were to denote this as positive instead with ```abs(lon)``` we'd get: `r abs(lon)`. This is a valid longitude, but not for this purpose!
 
-Now we can specify the other information as individual vectors:
+Next we can specify the other information in the table as individual vectors:
 
 ```{r}
 animal_id <- 'BMMS_00-01'
 species <- 'S.frontalis'
 ```
 
-Let's put them all together into a data frame - the most common data object in R:
+Let's put them all together into a data frame - the most common data object in R and take a look at its contents:
 
 ```{r}
 strandings <- data.frame(animal_id, species, lon, lat)
 strandings
 ```
 
+On to the ship locations...
+
 ### Ship Location
-The map in the Joint Interim Report is pretty crappy and not that usable. I reached out to the author of the sound propagation section - Dr. David Fromm, from the Naval Research Lab - and he sent me the entire sound prop report:
+The map in the Joint Interim Report is pretty crappy and not that usable (do you think this was deliberate?). I reached out to the author of the sound propagation section - Dr. David Fromm, from the Naval Research Lab - and he sent me the entire sound prop report:
 
-ACOUSTIC MODELING RESULTS OF THE NEW PROVIDENCE CHANNEL FOR 15 MARCH 2000. Dr. David M. Fromm, NRL & Dr. James McEachern, ONR, 29 August 2000
+> ACOUSTIC MODELING RESULTS OF THE NEW PROVIDENCE CHANNEL FOR 15 MARCH 2000. Dr. David M. Fromm, NRL & Dr. James McEachern, ONR, 29 August 2000
 
-(this is in the resources section)
+> The report is in the resources section on sakai; the file is 2019-10-09_NPC_Report-final.pdf.
 
-Therein, they note the locations of the ships with the different sonar types. Here's ship A:
+Therein, they note the locations of the ships with the different sonar types. Here's ship A from page 38:
 
 Time (UTC)  | Lat   | Long  | Frequency (kHz)  | Source Level (dB)
 ------------- | ------------- | ------------- | ------------- | -------------
@@ -114,7 +120,7 @@ Time (UTC)  | Lat   | Long  | Frequency (kHz)  | Source Level (dB)
 1430  | 26 05 N | 077 50 W  | 3.3   | 235
 1630  | 26 19 N | 078 13 W  | 3.3   | 225
 
-We need to convert that into a data frame again; this time I'm going to assemble it all in one go and then print it to the screen:
+In order to take this text and turn it into data that R can use to plot, we have to convert the text into a data frame again. We've done this a few times now; this time instead of making the individual vectors, I'm going to assemble it all in one go and then print it to the screen:
 
 ```{r}
 ships <- data.frame(ship_ID = 'A',
@@ -131,31 +137,49 @@ ships <- data.frame(ship_ID = 'A',
 ships
 ```
 
-Ok! We have a ship's track through the area. Pretty cool. (n.b., for your homework, you may want to allot one of the three remaining ships to a group member so you don't all have to input the data 3 times.)
+Ok! We have a ship's track through the area. Pretty cool. (n.b., for your homework, you may want to choose a ship for each member of your group and then share the code within your group. This way you don't all have to input the data 3 times, but make sure to error check.)
 
-All we did above was specify the vectors within the call to ```data.frame()```, which just saves us a step. Also note that dates and times can be very fussy to get right. In fact they can be a collossal pain in the keister. However, with that fussy formatting, R now knows this is a date object. This allows us to do operations on the dates themselves:
+All we did in the above block of code was specify the vectors within the call to ```data.frame()```, which just saves us a step. Also note that dates and times can be _very_ fussy to get right in R. In fact they can be a collossal pain in the keister. 
+
+However, with that fussy formatting I've used above, R now knows this is a date object. This allows us to do operations on the dates themselves, e.g. we can add 7 months to the date and look at the time difference between two points along the track:
 
 ```{r}
 ships$time[1] + months(7)
 ships$time[4] - ships$time[1]
 ```
 
-If you stay working with R, I suggest learning the ```lubridate()``` package, which makes a lot of the date handling easier. 
+If you stay working with R, I suggest learning the ```lubridate()``` package, which makes a lot of the date handling and manipulating easier. 
 
 ## Spatial Data
 ### Plot the Ship Track
 We now have enough to plot the ship onto the map. So we can repurpose the plotting code from above. But of course, we have to change the inputs to plot what we want. Now I'm color coding the points based on the source level of the ship, and we change the pop-up text. 
 
-You may wonder how I chose the default zoom and location of the map. You may also wonder what I mean by that! By zoom I mean how far zoomed in or out we are from where the data are. The higher the number the greater the zoom (this is in the ```setView()``` command). Try it at 2, and then again at 12 to see the difference.
+You may wonder how I chose the default zoom and location of the map. (You may also wonder what I mean by that!) 
 
-And by location, again in the ```setView()``` command you can specify where to center the map. After some trial exploratory analysis, I chose to center it on the 14:30 location of the ship. But you can also change this and see what you get. Try ```lat = 38.8977, lon = -77.0365``` to see what you get.
+By zoom I mean how far zoomed in or out we are from where the data are. The higher the number, the greater the zoom (this is in the ```setView()``` command). Try it at ```zoom = 2```, and then again at ```zoom = 12``` to see the difference. You have to re-source the code each time to make the changes. 
+
+> **Pedagogical aside:** If this is confusing at this point, no problem. To help get your head around it, imagine you were using a recipe that a friend gave you to make chocolate chip cookies. You used the ingredients, and baked the cookies, but they turned out terribly. You call your friend, who happens to be a pastry chef, and they say "oh sorry, I made a mistake, I meant 1 cup of butter, not 1 Tablespoon." 
+
+> You go ahead and change the recipe on a sheet of paper, but to get new cookies, you have to make the whole batch over again - this time with the right amount of butter. If you just change the recipe (think - change the code) but don't cook it again, you still are stuck with the crappy cookies from the first iteration. 
+
+> Each time we make a change to the code (recipe), we need to re-run it, otherwise R won't do anything new.
+
+And by location, I mean where the map is centered. Using the ```setView()``` command again, you can specify where to center the map. 
+
+After some trial exploratory analysis, I chose to center it on the 14:30 location of ship A. But you can also change this and see what you get. Try ```lat = 38.8977, lon = -77.0365``` to see what you get. And by try, I mean swap these values for the ones I've put in the code block below. I've commented these out for you, so just uncomment them (remove the pound sign) and re-run the block of code.
+
+Let's plot the track of the ship:
 
 ```{r}
 mybins <- seq(220, 245, by=5)
-mypalette <- colorBin(palette="Reds", domain=shipA$source_level, na.color="transparent", bins=mybins)
+mypalette <- colorBin(palette="Reds", domain=ships$source_level, na.color="transparent", bins=mybins)
 
 center_lat <- 26.08333
 center_long <- -77.83333
+
+# Trial new map center
+# center_lat <- 38.8977
+# center_long <- -77.0365
 
 # Prepare the text for the tooltip:
 mytext <- paste(
@@ -178,7 +202,7 @@ m <- leaflet(ships) %>%
 m
 ```
 
-So that looks cool, but we can improve this - no? What if we wanted to add the stranding to the map? What would we need to add? Well the data from the whale, of course, but we might also want to change the text for the tooltip, i.e. what you get when you hover your cursor over the point. 
+So that looks cool, but we can improve this - no? What if we wanted to add the stranding to the map? What would we need to add? Well the data from the whale, of course, but we might also want to change the text for the tooltip, i.e. what you get when you hover your cursor over the point. Test this by sourcing the block, and by hovering your mouse over the whale marker and over a ship location to see the difference. 
 
 ```{r}
 m2 <- m %>% 
@@ -186,7 +210,9 @@ addMarkers(data = strandings, ~lon, ~lat, popup = ~as.character(species), label 
 m2
 ```
 
-What else might we want? For homework I'm going to ask you to plot all the strandings and all the ships. Let's see an example of how we might build up the data sets. Let's add one more whale, and one point from one ship. I'll leave it as homework for you to do the rest. One way you might want to do this is to make the complete data sets in one go as I demonstrated above. Here I'll just add one row to each data frame - first the whales:
+What else might we want? **All** the strandings and **all** the ships of course! For homework I'm going to ask you to plot **all** the data, so here I'll just show one example. The strandings data are in Table 1 of Balcomb and Claridge (2001), and the ship data are in the Fromm and McEachren report (pages 38, 40, 42, and 44).
+
+Let's see an example of how we might build up the data sets. Let's add one more whale, and one point from one ship. I'll leave it as homework for you to do the rest. One way you might want to do this is to make the complete data sets in one go as I demonstrated above. Here I'll just add one row to each existing data frame - first the whales (in the ```strandings``` data frame):
 
 ```{r, warning=FALSE, message=FALSE}
 new_sight <- data.frame(animal_id = "BMMS_00_05", species = 'M.densirostris', lon = -1 * (77 + 31.163/60), lat = 26 + 05.908/60)
@@ -194,7 +220,7 @@ strandings <- bind_rows(strandings, new_sight)
 strandings
 ```
 
-Then shipB:
+Then ship B. Here I add one time from Ship B to the ```ships``` data frame. I grabbed the information from page 40 of the Fromm report:
 
 ```{r, warning=FALSE, message=FALSE}
 shipB <- data.frame(ship_ID = 'B',
@@ -206,7 +232,11 @@ shipB <- data.frame(ship_ID = 'B',
 ships <- bind_rows(ships, shipB)
 ```
 
-Finally, let's plot it. Note that we have to source the ```mytext``` block again to account for the fact that we've added a new ship to the ```ships``` data frame. In your homework, you'll do the data assembly all at once, and avoid having to make this double sourcing of the code.
+Finally, let's plot it. 
+
+> Aside - Note that we have to source the ```mytext``` block again to account for the fact that we've added a new ship to the ```ships``` data frame. In your homework, you'll do the data assembly all at once, and avoid having to make this double sourcing of the code.
+
+Also, here I'm adding the updated data to the existing map, ```m``` to create a new map object called ```m3```.
 
 ```{r}
 mytext <- paste(
@@ -226,17 +256,25 @@ m3 <- m %>%
 m3
 ```
 
-Ok, channeling my inner Bob Ross I think this happy little map looks great. Note, on the off chance that you do not know who Bob Ross is, first - he rules:
+Ok, channeling my inner Bob Ross I think this "happy little map" looks great. 
 
-![alt text](Bob_at_Easel.jpg)
-Second, his programs are surprisingly effective at relaxation. See https://www.youtube.com/watch?v=lLWEXRAnQd0 for example. Remember this (and the puppies!) at exam time. 
+> Important aside: on the off chance that you do not know who Bob Ross is, first - he rules:
+
+![](Bob_at_Easel.jpg)
+
+
+> Second, his programs are surprisingly effective for relaxation. See https://www.youtube.com/watch?v=lLWEXRAnQd0 for example. Remember this (and the puppies!) at exam time. 
 
 ## Adding Sonar
-Let's turn this up to 11 and add in a buffer on the ship's position to get a feel for how much of the North East Providence channel was ensonified. To do this, I'm going to select a distance from the ship where source level exceeds *135* dB. For your homework, you can choose whatever you want as long as you can defend it based on the figure, our readings and in-class discussion. Here's a snapshot of the acoustic field from the NRL report:
+Let's turn this map up to 11 and add in a buffer on the ship's position to get a feel for how much of the North East Providence channel was ensonified. To do this, I'm going to select a distance from the ship where source level exceeds *135* dB. For your homework, you can choose whatever you want as long as you can defend it based on the figure and on Table III from the Fromm report, and on our readings and in-class discussion. Here's a snapshot of the acoustic field from the NRL report:
 
-![alt text](ship-B_Upper-Water-Column.png)
+![](ship-B_Upper-Water-Column.png)
 
-I'm going to choose 60km. How do we then buffer that to show the ensonification?
+Based on this figure and Table III.1b in the report, I'm going to choose 60km. 
+
+How do we then buffer the ships point to show the ensonification in the channel? We add a circle to the map for one location (the 1430 time for Ship A), and specify the radius in meters - 60000m for 60km.
+
+**Before you run this, what do you think it will look like?**
 
 ```{r}
 m4 <- m3 %>% 
@@ -248,4 +286,5 @@ m4 <- m3 %>%
 m4
 ```
 
-What does this tell you about the whales in the channel?
+## Summary
+This buffer shows the amount of area at the surface where Sound Pressure Levels exceeded 135 dB for one (of 4) ships in the Northeast Providence Channel. What does this tell you about the whales experienced in the channel?
