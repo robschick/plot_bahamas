@@ -186,3 +186,11 @@ m <- leaflet(shipA) %>%
 
 m
 ```
+
+So that looks cool, but we can improve this - no? What if we wanted to add the stranding to the map? What would we need to add? Well the data from the whale, of course, but we might also want to change the text for the tooltip, i.e. what you get when you hover your cursor over the point. 
+
+```{r}
+m <- m %>% 
+addMarkers(data = strandings, ~lon, ~lat, popup = ~as.character(species), label = ~as.character(species))
+```
+
